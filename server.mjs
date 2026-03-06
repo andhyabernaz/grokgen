@@ -48,19 +48,27 @@ app.use((req, res, next) => {
 
 app.use((req, res, next) => {
     const p = (req.path || "").toLowerCase();
+    // Block sensitive files unless they are inside node_modules (which we explicitly allow)
     if (
         p.includes("..") ||
         p.startsWith("/.") ||
         p.includes("/.git") ||
         p.endsWith(".env") ||
-        p.endsWith("package.json") ||
-        p.endsWith("server.mjs") ||
-        p.endsWith("build.mjs")
+        (p.endsWith("package.json") && !p.includes("node_modules")) ||
+        (p.endsWith("server.mjs") && !p.includes("node_modules")) ||
+        (p.endsWith("build.mjs") && !p.includes("node_modules"))
     ) {
         return res.status(404).end();
     }
     next();
 });
+
+// Serve node_modules to allow unrestricted access as requested
+app.use("/node_modules", express.static(path.join(__dirname, "node_modules"), {
+    index: false,
+    dotfiles: "allow", // Allow dotfiles inside node_modules if needed
+    redirect: false
+}));
 
 app.get("/api/health", (req, res) => {
     res.json({ mode: "proxy" });
