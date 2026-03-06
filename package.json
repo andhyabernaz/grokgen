@@ -1,0 +1,21 @@
+{
+  "name": "grokgen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node server.mjs",
+    "audit": "npm audit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^7.2.0"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0",
+    "terser": "^5.31.6",
+    "tailwindcss": "^3.4.17"
+  }
+}

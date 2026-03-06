@@ -418,6 +418,11 @@
             </div>
 
             <div class="ui-section">
+                <div class="ui-section-title">Kompatibilitas model (terdeteksi)</div>
+                <div id="model-compat-list" class="ui-muted">Belum ada data. Jalankan generate untuk mendeteksi dukungan gambar/audio.</div>
+            </div>
+
+            <div class="ui-section">
                 <div class="ui-section-title">Komponen (reusable)</div>
                 <div class="ui-muted">
                     Tombol: ui-btn + (ui-btn-primary/ui-btn-secondary/ui-btn-ghost). Input: ui-input. Select: ui-select. Switch: ui-switch + ui-switch-input.
@@ -463,8 +468,9 @@
     </div>
 
 <script type="module">
-    let apiKey = localStorage.getItem('gemini_api_key') || "";
+    let apiKey = "";
     let isSimulationMode = false;
+    let useServerProxy = false;
 
     const MODELS = {
         TEXT: 'gemini-1.5-flash',
@@ -472,8 +478,26 @@
         TTS: 'gemini-1.5-flash'
     };
 
-    const getApiUrl = (model, method = 'generateContent') => 
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${apiKey}`;
+    const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } finally {
+            clearTimeout(t);
+        }
+    };
+
+    const detectServerProxy = async () => {
+        try {
+            const res = await fetchWithTimeout('/api/health', { method: 'GET' }, 1800);
+            if (!res.ok) return false;
+            const j = await res.json().catch(() => ({}));
+            return j?.mode === "proxy";
+        } catch {
+            return false;
+        }
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
         let selectedStyle = null, uploadedFiles = {}, generatedContent = { images: [], script: "" };
@@ -527,7 +551,8 @@
             playAudioBtn: document.getElementById('play-audio-btn'),
             playIcon: document.getElementById('play-icon'),
             pauseIcon: document.getElementById('pause-icon'),
-            downloadAudioLink: document.getElementById('download-audio-link')
+            downloadAudioLink: document.getElementById('download-audio-link'),
+            modelCompatList: document.getElementById('model-compat-list')
         };
 
         const getTheme = () => localStorage.getItem('ui_theme') || "";
@@ -573,7 +598,6 @@
             dom.apiKeyInput.value = apiKey;
             dom.apiKeyInput.addEventListener('input', (e) => {
                 apiKey = e.target.value;
-                localStorage.setItem('gemini_api_key', apiKey);
             });
         }
         if (dom.simulationMode) {
@@ -652,9 +676,11 @@
             if (activeModelName) dom.modelSelect.value = activeModelName;
         };
         const listModels = async () => {
-            if (!apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
-            const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-            const res = await fetch(url);
+            const url = useServerProxy
+                ? `/api/models`
+                : `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+            if (!useServerProxy && !apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
+            const res = await fetch(url, { method: 'GET' });
             if (!res.ok) {
                 const errJ = await res.json().catch(() => ({}));
                 throw new Error(errJ?.error?.message || `HTTP ${res.status}`);
@@ -698,7 +724,6 @@
             { id: 'Orus', name: 'Pria - Tegas' }
         ];
 
-        // --- Helper Functions ---
         const bindUploadAreas = () => {
             const productArea = document.getElementById('product-upload-area');
             const modelArea = document.getElementById('model-upload-panel');
@@ -746,10 +771,88 @@
             return s.includes(modality.toUpperCase());
         };
 
-        const apiCall = async (url, payload) => {
+        const capabilityStorageKey = "model_capabilities_v1";
+        let capabilityCache = (() => {
+            try { return JSON.parse(localStorage.getItem(capabilityStorageKey) || "{}"); }
+            catch { return {}; }
+        })();
+        const saveCapabilities = () => localStorage.setItem(capabilityStorageKey, JSON.stringify(capabilityCache));
+        const getCapability = (model, modality) => {
+            const m = capabilityCache?.[model];
+            if (!m) return undefined;
+            return m?.[modality];
+        };
+        const setCapability = (model, modality, value) => {
+            if (!model) return;
+            capabilityCache[model] = capabilityCache[model] || {};
+            capabilityCache[model][modality] = Boolean(value);
+            saveCapabilities();
+        };
+        const isModalityUnsupportedError = (message, modality) => {
+            const msg = String(message || "").toLowerCase();
+            const mod = String(modality || "").toLowerCase();
+            const mentionsModality = msg.includes("responsemodalities") || msg.includes("response modalities") || msg.includes("modality");
+            const mentionsUnsupported = msg.includes("not supported") || msg.includes("does not support") || msg.includes("unsupported");
+            const mentionsType = mod ? msg.includes(mod) : true;
+            return (mentionsModality || mentionsUnsupported) && mentionsType;
+        };
+        const buildUnsupportedModalityMessage = (model, modality) => {
+            const m = model || "(tidak diketahui)";
+            if (modality === "IMAGE") {
+                return `Model "${m}" tidak mendukung output gambar untuk alur ini. Klik Refresh pada bagian Model lalu pilih model lain. Jika masalah berlanjut, gunakan Mode Simulasi untuk uji alur tanpa API.`;
+            }
+            if (modality === "AUDIO") {
+                return `Model "${m}" tidak mendukung output audio. Klik Refresh pada bagian Model lalu pilih model lain.`;
+            }
+            return `Model "${m}" tidak mendukung output "${modality}". Pilih model lain.`;
+        };
+        const renderModelCompatibility = () => {
+            if (!dom.modelCompatList) return;
+            const entries = Object.entries(capabilityCache || {});
+            if (!entries.length) {
+                dom.modelCompatList.textContent = "Belum ada data. Jalankan generate untuk mendeteksi dukungan gambar/audio.";
+                return;
+            }
+            const supportsImage = entries.filter(([, caps]) => caps?.IMAGE).map(([name]) => name);
+            const supportsAudio = entries.filter(([, caps]) => caps?.AUDIO).map(([name]) => name);
+            const lines = [];
+            if (supportsImage.length) lines.push(`Gambar: ${supportsImage.join(", ")}`);
+            if (supportsAudio.length) lines.push(`Audio: ${supportsAudio.join(", ")}`);
+            if (!lines.length) lines.push("Belum ada model yang terdeteksi mendukung gambar/audio.");
+            dom.modelCompatList.textContent = lines.join(" | ");
+        };
+        renderModelCompatibility();
+
+        const ensureModelSupports = async (model, modality) => {
+            if (isSimulationMode) return;
+            if (!model) throw new Error(`Model belum dipilih untuk output ${modality}.`);
+            const cached = getCapability(model, modality);
+            if (cached === true) return;
+            if (cached === false) throw new Error(buildUnsupportedModalityMessage(model, modality));
+            const payload =
+                modality === "IMAGE"
+                    ? { contents: [{ parts: [{ text: "Capability check" }] }], generationConfig: { responseModalities: ["IMAGE"] } }
+                    : modality === "AUDIO"
+                        ? { contents: [{ parts: [{ text: "Capability check" }] }], generationConfig: { responseModalities: ["AUDIO"] } }
+                        : { contents: [{ parts: [{ text: "Capability check" }] }] };
+            try {
+                await apiCall({ model, payload });
+                setCapability(model, modality, true);
+                renderModelCompatibility();
+            } catch (e) {
+                if (isModalityUnsupportedError(e?.message, modality)) {
+                    setCapability(model, modality, false);
+                    renderModelCompatibility();
+                    throw new Error(buildUnsupportedModalityMessage(model, modality));
+                }
+                throw e;
+            }
+        };
+
+        const apiCall = async ({ model, payload }) => {
             if (isSimulationMode) {
                 await new Promise(r => setTimeout(r, 650));
-                if (url.includes('generateContent')) {
+                if (true) {
                     if (JSON.stringify(payload).includes('visual storyboard')) {
                         return { candidates: [{ content: { parts: [{ text: JSON.stringify({
                             script: "Ini adalah naskah simulasi untuk produk Anda. Produk ini sangat luar biasa dan mengubah hidup.",
@@ -758,16 +861,19 @@
                     }
                     return { candidates: [{ content: { parts: [{ inlineData: { data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" } }] } }] };
                 }
-                return {};
             }
 
-            if (!apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
-            
+            if (!useServerProxy && !apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
+
             let lastError;
             const delays = [1000, 2000, 4000];
             for (let i = 0; i <= delays.length; i++) {
                 try {
-                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const url = useServerProxy
+                        ? `/api/generate`
+                        : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const body = useServerProxy ? { model, payload } : payload;
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     if (res.ok) return await res.json();
                     if ((res.status === 429 || res.status >= 500) && i < delays.length) {
                         await new Promise(r => setTimeout(r, delays[i]));
@@ -812,6 +918,7 @@
             let completed = false;
             
             try {
+                await ensureModelSupports(MODELS.IMAGE, "IMAGE");
                 dom.loadingMessage.textContent = "Menyusun Naskah & Konsep...";
                 const textPayload = {
                     contents: [{ parts: [{ text: `Buat visual storyboard ${selectedSceneCount} adegan untuk video pendek. 
@@ -819,7 +926,7 @@
                 };
                 if (uploadedFiles.productImage) textPayload.contents[0].parts.push({ inlineData: uploadedFiles.productImage });
                 
-                const textRes = await apiCall(getApiUrl(MODELS.TEXT), textPayload);
+                const textRes = await apiCall({ model: MODELS.TEXT, payload: textPayload });
                 const rawText = textRes.candidates[0].content.parts[0].text;
                 const plan = parseJSONFromText(rawText);
                 
@@ -843,9 +950,6 @@
 
                 const imagePromises = plan.prompts.map(async (prompt, i) => {
                     try {
-                        if (activeModelName && !supportsModality(activeModelName, "IMAGE")) {
-                            throw new Error("Model terpilih tidak mendukung output gambar.");
-                        }
                         const imgPayload = { 
                             contents: [{ parts: [{ text: prompt + " photorealistic, 8k, high quality" }] }], 
                             generationConfig: { responseModalities: ['IMAGE'] }
@@ -853,7 +957,7 @@
                         if (uploadedFiles.productImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.productImage });
                         if (modelMode === 'upload' && uploadedFiles.modelImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.modelImage });
                         
-                        const imgRes = await apiCall(getApiUrl(MODELS.IMAGE), imgPayload);
+                        const imgRes = await apiCall({ model: MODELS.IMAGE, payload: imgPayload });
                         const b64 = imgRes.candidates[0].content.parts.find(p => p.inlineData)?.inlineData?.data;
                         
                         if (b64) {
@@ -942,9 +1046,7 @@
                     dom.ttsBtn.textContent = "Buat Audio";
                     return;
                 }
-                if (activeModelName && !supportsModality(activeModelName, "AUDIO")) {
-                    throw new Error("Model terpilih tidak mendukung output audio.");
-                }
+                await ensureModelSupports(MODELS.TTS, "AUDIO");
 
                 const p = { 
                     contents: [{ parts: [{ text: s }] }], 
@@ -953,7 +1055,7 @@
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: dom.ttsVoice.value } } } 
                     } 
                 };
-                const res = await apiCall(getApiUrl(MODELS.TTS), p);
+                const res = await apiCall({ model: MODELS.TTS, payload: p });
                 const b64 = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                 if (!b64) throw new Error("Gagal mendapatkan data audio.");
 
@@ -1016,9 +1118,17 @@
                 });
             });
         }
-        if (apiKey) {
-            listModels().catch(e => showToast(e.message, true));
-        }
+        (async () => {
+            useServerProxy = await detectServerProxy();
+            if (useServerProxy && dom.apiKeyInput) {
+                dom.apiKeyInput.value = "";
+                dom.apiKeyInput.setAttribute('placeholder', 'Menggunakan server (API key tidak diperlukan)');
+                dom.apiKeyInput.disabled = true;
+            }
+            if (useServerProxy || apiKey) {
+                listModels().catch(e => showToast(e.message, true));
+            }
+        })();
     });
 </script>
 </body>
