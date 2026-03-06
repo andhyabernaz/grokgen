@@ -36,6 +36,10 @@
                         <span class="ml-1 text-gray-500">Mode Simulasi</span>
                     </label>
                 </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <select id="model-select" class="border border-gray-300 rounded px-2 py-1 text-xs w-52"></select>
+                    <button id="refresh-models" class="text-xs px-2 py-1 border border-gray-300 rounded">Perbarui Model</button>
+                </div>
             </div>
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">Video Grok <span class="text-purple-600">Generator</span></h1>
         </header>
@@ -191,11 +195,16 @@
         let selectedStyle = null, uploadedFiles = {}, generatedContent = { images: [], script: "" };
         let modelMode = 'upload';
         let selectedSceneCount = 5;
+        let availableModels = [];
+        let modelInfoMap = {};
+        let activeModelName = localStorage.getItem('gemini_active_model') || "";
 
         // --- DOM Elements ---
         const dom = {
             apiKeyInput: document.getElementById('api-key-input'),
             simulationMode: document.getElementById('simulation-mode'),
+            modelSelect: document.getElementById('model-select'),
+            refreshModels: document.getElementById('refresh-models'),
             styleCards: document.querySelectorAll('.style-card'),
             sceneCountContainer: document.getElementById('scene-count-container'),
             sceneCountBtns: document.querySelectorAll('.scene-count-btn'),
@@ -230,6 +239,63 @@
         if (dom.simulationMode) {
             dom.simulationMode.addEventListener('change', (e) => {
                 isSimulationMode = e.target.checked;
+            });
+        }
+        const setActiveModel = (name) => {
+            activeModelName = name || "";
+            localStorage.setItem('gemini_active_model', activeModelName);
+            MODELS.TEXT = activeModelName || MODELS.TEXT;
+            MODELS.IMAGE = activeModelName || MODELS.IMAGE;
+            MODELS.TTS = activeModelName || MODELS.TTS;
+        };
+        const populateModelSelect = () => {
+            if (!dom.modelSelect) return;
+            const opts = availableModels.map(m => {
+                const rawName = m.name || "";
+                const short = rawName.startsWith("models/") ? rawName.slice(7) : rawName;
+                const label = m.displayName || short || rawName;
+                return { value: short, label };
+            });
+            dom.modelSelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+            if (activeModelName) dom.modelSelect.value = activeModelName;
+        };
+        const listModels = async () => {
+            if (!apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
+            const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                const errJ = await res.json().catch(() => ({}));
+                throw new Error(errJ?.error?.message || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            const models = data.models || data || [];
+            availableModels = models.filter(m => JSON.stringify(m).includes("generateContent"));
+            modelInfoMap = {};
+            for (const m of availableModels) {
+                const rawName = m.name || "";
+                const short = rawName.startsWith("models/") ? rawName.slice(7) : rawName;
+                modelInfoMap[short] = m;
+            }
+            populateModelSelect();
+            const preferred = availableModels.find(m => (m.name || "").includes("gemini-1.5-flash")) || availableModels[0];
+            if (!activeModelName && preferred) {
+                const short = (preferred.name || "").startsWith("models/") ? preferred.name.slice(7) : preferred.name;
+                setActiveModel(short);
+                populateModelSelect();
+            }
+        };
+        if (dom.modelSelect) {
+            dom.modelSelect.addEventListener('change', (e) => {
+                setActiveModel(e.target.value);
+                showToast("Model diubah.");
+            });
+        }
+        if (dom.refreshModels) {
+            dom.refreshModels.addEventListener('click', async () => {
+                try { 
+                    await listModels(); 
+                    showToast("Daftar model diperbarui."); 
+                } catch (e) { showToast(e.message, true); }
             });
         }
 
@@ -284,6 +350,12 @@
                 throw new Error("Gagal mengurai respons JSON dari AI.");
             }
         };
+        const supportsModality = (modelName, modality) => {
+            const info = modelInfoMap[modelName];
+            if (!info) return false;
+            const s = JSON.stringify(info).toUpperCase();
+            return s.includes(modality.toUpperCase());
+        };
 
         const apiCall = async (url, payload) => {
             // Mock Mode Logic
@@ -317,7 +389,11 @@
                         continue;
                     }
                     const errJ = await res.json().catch(() => ({}));
-                    throw new Error(errJ?.error?.message || `HTTP ${res.status}`);
+                    const msg = errJ?.error?.message || `HTTP ${res.status}`;
+                    if (msg.includes("not found") || msg.includes("not supported")) {
+                        throw new Error("Model tidak valid untuk API v1beta atau tidak mendukung generateContent. Gunakan tombol Perbarui Model dan pilih model yang valid (misal: gemini-1.5-flash).");
+                    }
+                    throw new Error(msg);
                 } catch (e) { lastError = e; }
             }
             throw lastError;
@@ -383,6 +459,9 @@
 
                 const imagePromises = plan.prompts.map(async (prompt, i) => {
                     try {
+                        if (activeModelName && !supportsModality(activeModelName, "IMAGE")) {
+                            throw new Error("Model terpilih tidak mendukung output gambar.");
+                        }
                         const imgPayload = { 
                             contents: [{ parts: [{ text: prompt + " photorealistic, 8k, high quality" }] }], 
                             generationConfig: { responseModalities: ['IMAGE'] } // Ensure IMAGE modality
@@ -409,6 +488,14 @@
                         console.error(`Failed to generate image ${i}:`, e);
                         placeholders[i].className = "bg-red-50 rounded-lg overflow-hidden border aspect-[9/16] flex items-center justify-center";
                         placeholders[i].innerHTML = `<span class="text-red-500 text-xs p-2 text-center">Gagal: ${e.message}</span>`;
+                        if (isSimulationMode) {
+                            const url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+                            placeholders[i].className = "bg-gray-100 rounded-lg overflow-hidden border aspect-[9/16] group relative";
+                            placeholders[i].innerHTML = `
+                                <img src="${url}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity truncate">${prompt}</div>
+                            `;
+                        }
                     }
                 });
 
@@ -464,6 +551,9 @@
                     dom.ttsBtn.disabled = false;
                     dom.ttsBtn.textContent = "Buat Audio";
                     return;
+                }
+                if (activeModelName && !supportsModality(activeModelName, "AUDIO")) {
+                    throw new Error("Model terpilih tidak mendukung output audio.");
                 }
 
                 const p = { 
@@ -524,6 +614,9 @@
         dom.ttsVoice.innerHTML = ttsVoices.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
         
         bindUploadAreas();
+        if (apiKey) {
+            listModels().catch(e => showToast(e.message, true));
+        }
     });
 </script>
 </body>
