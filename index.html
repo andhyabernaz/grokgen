@@ -10,41 +10,263 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; }
-        .style-card { transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
-        .style-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(168, 85, 247, 0.1); }
-        .style-card.selected { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); transform: translateY(-2px); background-color: #f5f3ff; }
-        .scene-count-btn { transition: all 0.2s; }
-        .scene-count-btn.selected { border-color: #a855f7; background-color: #f5f3ff; color: #6b21a8; box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2); }
-        .loader { border-top-color: #a855f7; animation: spin 1s linear infinite; }
+        :root {
+            --ui-font: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            --ui-bg: #f6f7fb;
+            --ui-surface: #ffffff;
+            --ui-surface-2: #f3f4f6;
+            --ui-text: #0f172a;
+            --ui-text-2: #334155;
+            --ui-text-3: #64748b;
+            --ui-border: rgba(15, 23, 42, 0.10);
+            --ui-border-2: rgba(15, 23, 42, 0.16);
+            --ui-primary: #7c3aed;
+            --ui-primary-2: #6d28d9;
+            --ui-danger: #ef4444;
+            --ui-success: #16a34a;
+            --ui-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.08);
+            --ui-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 18px rgba(15, 23, 42, 0.08);
+            --ui-radius-lg: 18px;
+            --ui-radius-md: 14px;
+            --ui-radius-sm: 10px;
+            --ui-ring: 0 0 0 4px rgba(124, 58, 237, 0.22);
+            --ui-gap: 16px;
+            --ui-gap-lg: 24px;
+            --ui-ease: cubic-bezier(.2,.8,.2,1);
+        }
+
+        html[data-theme="dark"] {
+            --ui-bg: #0b1220;
+            --ui-surface: rgba(17, 24, 39, 0.72);
+            --ui-surface-2: rgba(15, 23, 42, 0.70);
+            --ui-text: #e5e7eb;
+            --ui-text-2: #cbd5e1;
+            --ui-text-3: #94a3b8;
+            --ui-border: rgba(148, 163, 184, 0.16);
+            --ui-border-2: rgba(148, 163, 184, 0.22);
+            --ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 18px 44px rgba(0, 0, 0, 0.36);
+            --ui-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.22), 0 10px 28px rgba(0, 0, 0, 0.32);
+            --ui-ring: 0 0 0 4px rgba(124, 58, 237, 0.30);
+        }
+
+        html, body { height: 100%; }
+        body {
+            font-family: var(--ui-font);
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(124, 58, 237, 0.12), transparent 60%),
+                        radial-gradient(1000px 600px at 90% 0%, rgba(16, 185, 129, 0.10), transparent 55%),
+                        var(--ui-bg);
+            color: var(--ui-text);
+            letter-spacing: -0.01em;
+        }
+
+        .ui-shell { max-width: 1200px; margin: 0 auto; }
+
+        .ui-topbar {
+            background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+            border: 1px solid var(--ui-border);
+            box-shadow: var(--ui-shadow-soft);
+            border-radius: var(--ui-radius-lg);
+            padding: 14px 14px 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .ui-topbar-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .ui-brand { display: flex; align-items: center; gap: 12px; min-width: 240px; }
+        .ui-mark {
+            width: 38px; height: 38px; border-radius: 12px;
+            background: linear-gradient(135deg, var(--ui-primary), #22c55e);
+            box-shadow: 0 10px 26px rgba(124, 58, 237, 0.22);
+            display: grid; place-items: center; color: #fff; font-weight: 800; letter-spacing: -0.03em;
+        }
+        .ui-title { font-size: 18px; line-height: 1.2; font-weight: 800; }
+        .ui-subtitle { font-size: 13px; color: var(--ui-text-3); margin-top: 2px; }
+        @media (min-width: 640px) {
+            .ui-title { font-size: 22px; }
+            .ui-subtitle { font-size: 14px; }
+        }
+
+        .ui-topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+        .ui-only-mobile { display: inline-flex; }
+        @media (min-width: 640px) { .ui-only-mobile { display: none; } }
+
+        .ui-settings {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        @media (min-width: 640px) { .ui-settings { grid-template-columns: 1.3fr 0.7fr; align-items: end; } }
+        @media (min-width: 1024px) { .ui-settings { grid-template-columns: 1.4fr 0.8fr 1.2fr; } }
+        .ui-settings[hidden] { display: none !important; }
+
+        .ui-field { display: grid; gap: 6px; }
+        .ui-field-label { font-size: 12px; color: var(--ui-text-3); font-weight: 600; }
+        .ui-input, .ui-select, .ui-textarea {
+            width: 100%;
+            background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+            border: 1px solid var(--ui-border-2);
+            color: var(--ui-text);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+            outline: none;
+            transition: box-shadow 160ms var(--ui-ease), border-color 160ms var(--ui-ease), transform 160ms var(--ui-ease);
+        }
+        .ui-input:focus, .ui-select:focus, .ui-textarea:focus { box-shadow: var(--ui-ring); border-color: rgba(124, 58, 237, 0.55); }
+
+        .ui-inline { display: flex; gap: 10px; align-items: center; }
+        .ui-inline > .ui-select { flex: 1; }
+
+        .ui-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid transparent;
+            transition: transform 160ms var(--ui-ease), box-shadow 160ms var(--ui-ease), background-color 160ms var(--ui-ease), border-color 160ms var(--ui-ease), color 160ms var(--ui-ease);
+            user-select: none;
+        }
+        .ui-btn:active { transform: translateY(1px) scale(0.99); }
+        .ui-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+        .ui-btn-primary { background: var(--ui-primary); color: #fff; box-shadow: 0 10px 26px rgba(124, 58, 237, 0.22); }
+        .ui-btn-primary:hover { background: var(--ui-primary-2); }
+        .ui-btn-secondary { background: color-mix(in srgb, var(--ui-surface) 85%, transparent); border-color: var(--ui-border); color: var(--ui-text); }
+        .ui-btn-secondary:hover { border-color: rgba(124, 58, 237, 0.35); box-shadow: var(--ui-shadow-soft); }
+        .ui-btn-ghost { background: transparent; border-color: var(--ui-border); color: var(--ui-text); }
+        .ui-btn-ghost:hover { background: color-mix(in srgb, var(--ui-surface-2) 70%, transparent); }
+
+        .ui-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: 14px; background: color-mix(in srgb, var(--ui-surface) 88%, transparent); }
+        .ui-switch-text { display: grid; gap: 2px; }
+        .ui-switch-title { font-size: 13px; font-weight: 700; color: var(--ui-text); }
+        .ui-switch-desc { font-size: 12px; color: var(--ui-text-3); }
+        .ui-switch-input { width: 42px; height: 24px; appearance: none; background: color-mix(in srgb, var(--ui-surface-2) 88%, transparent); border: 1px solid var(--ui-border-2); border-radius: 999px; position: relative; outline: none; cursor: pointer; transition: background-color 160ms var(--ui-ease), border-color 160ms var(--ui-ease), box-shadow 160ms var(--ui-ease); }
+        .ui-switch-input:focus { box-shadow: var(--ui-ring); border-color: rgba(124, 58, 237, 0.55); }
+        .ui-switch-input::after { content: ""; width: 18px; height: 18px; border-radius: 999px; background: #fff; position: absolute; top: 50%; left: 3px; transform: translateY(-50%); transition: transform 160ms var(--ui-ease), background-color 160ms var(--ui-ease); box-shadow: 0 8px 18px rgba(0,0,0,0.18); }
+        html[data-theme="dark"] .ui-switch-input::after { background: #e5e7eb; }
+        .ui-switch-input:checked { background: color-mix(in srgb, var(--ui-primary) 45%, transparent); border-color: rgba(124, 58, 237, 0.55); }
+        .ui-switch-input:checked::after { transform: translate(18px, -50%); }
+
+        .style-card { transition: transform 180ms var(--ui-ease), box-shadow 180ms var(--ui-ease), border-color 180ms var(--ui-ease), background-color 180ms var(--ui-ease); }
+        .style-card:hover { transform: translateY(-3px); box-shadow: var(--ui-shadow-soft); }
+        .style-card.selected { border-color: rgba(124, 58, 237, 0.55); box-shadow: var(--ui-ring); transform: translateY(-1px); background-color: color-mix(in srgb, var(--ui-primary) 10%, var(--ui-surface)); }
+
+        .scene-count-btn { transition: transform 180ms var(--ui-ease), box-shadow 180ms var(--ui-ease), border-color 180ms var(--ui-ease), background-color 180ms var(--ui-ease); }
+        .scene-count-btn:hover { transform: translateY(-1px); box-shadow: var(--ui-shadow-soft); }
+        .scene-count-btn.selected { border-color: rgba(124, 58, 237, 0.55); background-color: color-mix(in srgb, var(--ui-primary) 10%, var(--ui-surface)); color: var(--ui-text); box-shadow: var(--ui-ring); }
+
+        .loader { border-top-color: var(--ui-primary); animation: spin 900ms linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .toast { animation: fadeInOut 5s ease-in-out forwards; position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 100; }
-        @keyframes fadeInOut { 0%, 100% { opacity: 0; transform: translateY(20px); } 10%, 90% { opacity: 1; transform: translateY(0); } }
-        .file-upload-area { border: 2px dashed #9ca3af; transition: border-color 0.2s, background-color 0.2s; cursor: pointer; border-radius: 0.5rem; padding: 1.5rem; text-align: center; }
-        .file-upload-area:hover { border-color: #a855f7; background-color: rgba(168, 85, 247, 0.05); }
-        .file-preview { max-height: 120px; border-radius: 0.375rem; display: block; margin: 0 auto; }
+
+        .toast {
+            animation: fadeInOut 5s var(--ui-ease) forwards;
+            position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 120;
+            border: 1px solid var(--ui-border);
+            background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+            color: var(--ui-text);
+            backdrop-filter: blur(10px);
+        }
+        @keyframes fadeInOut { 0%, 100% { opacity: 0; transform: translateY(14px); } 10%, 90% { opacity: 1; transform: translateY(0); } }
+        .toast.is-error { border-color: rgba(239, 68, 68, 0.35); }
+        .toast.is-success { border-color: rgba(22, 163, 74, 0.35); }
+
+        .file-upload-area { border: 1px dashed var(--ui-border-2); transition: border-color 180ms var(--ui-ease), background-color 180ms var(--ui-ease), transform 180ms var(--ui-ease); cursor: pointer; border-radius: 14px; padding: 16px; text-align: center; background: color-mix(in srgb, var(--ui-surface) 88%, transparent); }
+        .file-upload-area:hover { border-color: rgba(124, 58, 237, 0.45); background-color: color-mix(in srgb, var(--ui-primary) 8%, var(--ui-surface)); transform: translateY(-1px); }
+        .file-preview { max-height: 120px; border-radius: 12px; display: block; margin: 0 auto; }
+
+        #loading-overlay { background: color-mix(in srgb, var(--ui-bg) 88%, transparent); backdrop-filter: blur(10px); }
+
+        .ui-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.46); backdrop-filter: blur(6px); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 180ms var(--ui-ease); }
+        html[data-theme="dark"] .ui-overlay { background: rgba(0, 0, 0, 0.54); }
+        .ui-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+        .ui-drawer {
+            position: fixed; top: 12px; right: 12px; bottom: 12px;
+            width: min(560px, calc(100vw - 24px));
+            background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+            border: 1px solid var(--ui-border);
+            border-radius: var(--ui-radius-lg);
+            box-shadow: var(--ui-shadow);
+            z-index: 210;
+            transform: translateX(12px);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 220ms var(--ui-ease), opacity 220ms var(--ui-ease);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+        }
+        .ui-drawer.is-open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+        .ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 14px 10px; border-bottom: 1px solid var(--ui-border); }
+        .ui-drawer-title { font-size: 14px; font-weight: 800; }
+        .ui-drawer-body { padding: 12px 14px; overflow: auto; }
+        .ui-drawer-footer { padding: 12px 14px; border-top: 1px solid var(--ui-border); display: flex; gap: 10px; justify-content: flex-end; }
+        .ui-kbd { font-size: 11px; color: var(--ui-text-3); border: 1px solid var(--ui-border); border-radius: 8px; padding: 2px 6px; background: color-mix(in srgb, var(--ui-surface-2) 60%, transparent); }
+
+        .ui-section { border: 1px solid var(--ui-border); border-radius: 14px; padding: 12px; background: color-mix(in srgb, var(--ui-surface) 88%, transparent); }
+        .ui-section-title { font-size: 12px; font-weight: 800; color: var(--ui-text-2); margin-bottom: 8px; }
+        .ui-grid-2 { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @media (min-width: 640px) { .ui-grid-2 { grid-template-columns: 1fr 1fr; } }
+        .ui-token { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px; border: 1px solid var(--ui-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-surface-2) 55%, transparent); }
+        .ui-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--ui-text-2); }
+        .ui-swatch { width: 16px; height: 16px; border-radius: 6px; border: 1px solid var(--ui-border); }
+        .ui-muted { color: var(--ui-text-3); font-size: 12px; }
+
+        html[data-theme="dark"] .bg-white { background-color: var(--ui-surface) !important; }
+        html[data-theme="dark"] .bg-gray-50 { background-color: color-mix(in srgb, var(--ui-surface-2) 85%, transparent) !important; }
+        html[data-theme="dark"] .bg-gray-100 { background-color: color-mix(in srgb, var(--ui-surface-2) 75%, transparent) !important; }
+        html[data-theme="dark"] .bg-gray-200 { background-color: color-mix(in srgb, var(--ui-surface-2) 65%, transparent) !important; }
+        html[data-theme="dark"] .text-gray-900, html[data-theme="dark"] .text-gray-800, html[data-theme="dark"] .text-gray-700 { color: var(--ui-text) !important; }
+        html[data-theme="dark"] .text-gray-600, html[data-theme="dark"] .text-gray-500 { color: var(--ui-text-3) !important; }
+        html[data-theme="dark"] .border-gray-100, html[data-theme="dark"] .border-gray-200, html[data-theme="dark"] .border-gray-300 { border-color: var(--ui-border) !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition-duration: 1ms !important; animation-duration: 1ms !important; scroll-behavior: auto !important; }
+        }
     </style>
 </head>
 <body class="antialiased">
-    <div id="app-container" class="min-h-screen p-4 sm:p-6 lg:p-8">
-        <header class="text-center mb-10 relative">
-            <div class="absolute top-0 right-0 p-4">
-                <input type="password" id="api-key-input" placeholder="Masukkan Gemini API Key" class="border border-gray-300 rounded px-2 py-1 text-sm w-48 focus:w-64 transition-all" />
-                <div class="mt-1 text-xs text-right">
-                    <label class="inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="simulation-mode" class="form-checkbox h-3 w-3 text-purple-600">
-                        <span class="ml-1 text-gray-500">Mode Simulasi</span>
-                    </label>
+    <div id="app-container" class="min-h-screen p-4 sm:p-6 lg:p-8 ui-shell">
+        <header class="ui-topbar mb-8">
+            <div class="ui-topbar-main">
+                <div class="ui-brand">
+                    <div class="ui-mark" aria-hidden="true">VG</div>
+                    <div>
+                        <h1 class="ui-title">Video Grok Generator</h1>
+                        <p class="ui-subtitle">Storyboard, naskah, dan audio dalam satu alur.</p>
+                    </div>
                 </div>
-                <div class="mt-2 flex items-center gap-2">
-                    <select id="model-select" class="border border-gray-300 rounded px-2 py-1 text-xs w-52"></select>
-                    <button id="refresh-models" class="text-xs px-2 py-1 border border-gray-300 rounded">Perbarui Model</button>
+                <div class="ui-topbar-actions">
+                    <button id="ds-open" type="button" class="ui-btn ui-btn-ghost">Design System</button>
+                    <button id="theme-toggle" type="button" class="ui-btn ui-btn-ghost" aria-pressed="false">Mode Gelap</button>
+                    <button id="settings-toggle" type="button" class="ui-btn ui-btn-ghost ui-only-mobile" aria-expanded="false">Pengaturan</button>
                 </div>
             </div>
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">Video Grok <span class="text-purple-600">Generator</span></h1>
+
+            <div id="settings-panel" class="ui-settings">
+                <label class="ui-field">
+                    <span class="ui-field-label">Gemini API Key</span>
+                    <input type="password" id="api-key-input" placeholder="Tempel API key di sini" class="ui-input" autocomplete="off" spellcheck="false" inputmode="text" />
+                </label>
+
+                <label class="ui-switch">
+                    <span class="ui-switch-text">
+                        <span class="ui-switch-title">Mode Simulasi</span>
+                        <span class="ui-switch-desc">Uji alur tanpa memanggil API</span>
+                    </span>
+                    <input type="checkbox" id="simulation-mode" class="ui-switch-input" aria-label="Mode simulasi">
+                </label>
+
+                <div class="ui-field">
+                    <span class="ui-field-label">Model</span>
+                    <div class="ui-inline">
+                        <select id="model-select" class="ui-select"></select>
+                        <button id="refresh-models" type="button" class="ui-btn ui-btn-secondary">Refresh</button>
+                    </div>
+                </div>
+            </div>
         </header>
 
-        <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <main class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <!-- Kolom Input -->
             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
                 <section id="style-selection">
@@ -117,7 +339,7 @@
                         </div>
                     </div>
 
-                    <button id="generate-btn" class="mt-8 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-lg">
+                    <button id="generate-btn" class="mt-8 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-lg ui-btn ui-btn-primary">
                         Generate Konten
                     </button>
                 </section>
@@ -141,11 +363,11 @@
                     <p>Naskah akan muncul di sini.</p>
                 </div>
                 <div id="script-audio-container" class="hidden space-y-6">
-                    <textarea id="generated-script" rows="8" class="w-full rounded-lg border-gray-300 bg-gray-50 p-3 text-sm focus:ring-2 focus:ring-purple-500 border transition"></textarea>
+                    <textarea id="generated-script" rows="8" class="w-full rounded-lg border-gray-300 bg-gray-50 p-3 text-sm focus:ring-2 focus:ring-purple-500 border transition ui-textarea" placeholder="Naskah akan muncul di sini..."></textarea>
                     
                     <div class="pt-6 border-t border-gray-100">
-                        <select id="tts-voice" class="w-full border-gray-300 border rounded-lg p-2 text-sm mb-3"></select>
-                        <button id="tts-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-purple-700 transition">Buat Audio</button>
+                        <select id="tts-voice" class="w-full border-gray-300 border rounded-lg p-2 text-sm mb-3 ui-select"></select>
+                        <button id="tts-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-purple-700 transition ui-btn ui-btn-primary">Buat Audio</button>
                         
                         <div id="audio-player-controls" class="hidden mt-4 bg-gray-50 p-3 rounded-lg flex items-center justify-between border">
                             <button id="play-audio-btn" class="w-10 h-10 bg-white rounded-full text-purple-600 flex items-center justify-center shadow">
@@ -161,6 +383,78 @@
         </main>
     </div>
 
+    <div id="ui-overlay" class="ui-overlay" aria-hidden="true"></div>
+    <div id="design-system-drawer" class="ui-drawer" role="dialog" aria-modal="true" aria-labelledby="ds-title">
+        <div class="ui-drawer-header">
+            <div>
+                <div class="ui-drawer-title" id="ds-title">Design System</div>
+                <div class="ui-muted">Tokens, komponen, dan metrik UX lokal</div>
+            </div>
+            <button id="ds-close" type="button" class="ui-btn ui-btn-ghost">Tutup <span class="ui-kbd">Esc</span></button>
+        </div>
+        <div class="ui-drawer-body space-y-3">
+            <div class="ui-section">
+                <div class="ui-section-title">Metrik UX (lokal)</div>
+                <div class="ui-grid-2">
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-primary)"></span>Rata-rata durasi generate</span><span id="ux-avg-duration" class="ui-muted">-</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-success)"></span>Rata-rata kepuasan (1–5)</span><span id="ux-avg-rating" class="ui-muted">-</span></div>
+                </div>
+                <div class="mt-3 flex gap-2 flex-wrap justify-end">
+                    <button id="ux-reset" type="button" class="ui-btn ui-btn-secondary">Reset Metrik</button>
+                    <button id="ux-open-feedback" type="button" class="ui-btn ui-btn-primary">Beri Feedback</button>
+                </div>
+            </div>
+
+            <div class="ui-section">
+                <div class="ui-section-title">Tokens (inti)</div>
+                <div class="ui-grid-2">
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-bg)"></span>Background</span><span class="ui-muted">--ui-bg</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-surface)"></span>Surface</span><span class="ui-muted">--ui-surface</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-text)"></span>Text</span><span class="ui-muted">--ui-text</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-border)"></span>Border</span><span class="ui-muted">--ui-border</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-primary)"></span>Primary</span><span class="ui-muted">--ui-primary</span></div>
+                    <div class="ui-token"><span class="ui-chip"><span class="ui-swatch" style="background: var(--ui-danger)"></span>Danger</span><span class="ui-muted">--ui-danger</span></div>
+                </div>
+            </div>
+
+            <div class="ui-section">
+                <div class="ui-section-title">Komponen (reusable)</div>
+                <div class="ui-muted">
+                    Tombol: ui-btn + (ui-btn-primary/ui-btn-secondary/ui-btn-ghost). Input: ui-input. Select: ui-select. Switch: ui-switch + ui-switch-input.
+                </div>
+            </div>
+        </div>
+        <div class="ui-drawer-footer">
+            <button id="ds-close-2" type="button" class="ui-btn ui-btn-secondary">Selesai</button>
+        </div>
+    </div>
+
+    <div id="feedback-modal" class="ui-drawer" role="dialog" aria-modal="true" aria-labelledby="fb-title" style="max-width: 520px; left: 50%; right: auto; transform: translate(-50%, 12px);">
+        <div class="ui-drawer-header">
+            <div>
+                <div class="ui-drawer-title" id="fb-title">Feedback</div>
+                <div class="ui-muted">Seberapa puas Anda dengan hasil dan alurnya?</div>
+            </div>
+            <button id="fb-close" type="button" class="ui-btn ui-btn-ghost">Tutup</button>
+        </div>
+        <div class="ui-drawer-body space-y-3">
+            <div class="ui-section">
+                <div class="ui-section-title">Skor kepuasan</div>
+                <div class="flex gap-2 flex-wrap">
+                    <button type="button" class="ui-btn ui-btn-secondary" data-rating="1">1</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" data-rating="2">2</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" data-rating="3">3</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" data-rating="4">4</button>
+                    <button type="button" class="ui-btn ui-btn-primary" data-rating="5">5</button>
+                </div>
+                <div class="mt-3 ui-muted">Skor disimpan lokal di browser (localStorage).</div>
+            </div>
+        </div>
+        <div class="ui-drawer-footer">
+            <button id="fb-close-2" type="button" class="ui-btn ui-btn-secondary">Selesai</button>
+        </div>
+    </div>
+
     <div id="loading-overlay" class="hidden fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
         <div class="text-center">
             <div class="loader rounded-full border-8 border-t-8 border-gray-200 h-20 w-20 mb-4 mx-auto"></div>
@@ -169,42 +463,50 @@
     </div>
 
 <script type="module">
-    // --- Konfigurasi & State Global ---
     let apiKey = localStorage.getItem('gemini_api_key') || "";
     let isSimulationMode = false;
 
-    // Model names - Updated to ensure compatibility
     const MODELS = {
-        TEXT: 'gemini-2.0-flash-exp', // Updated from preview-09-2025
-        IMAGE: 'gemini-2.0-flash-exp', // Updated to flash-exp which supports image gen
-        TTS: 'gemini-2.0-flash-exp'   // Updated to flash-exp if supported, or fallback
+        TEXT: 'gemini-1.5-flash',
+        IMAGE: 'gemini-1.5-flash',
+        TTS: 'gemini-1.5-flash'
     };
-    // Fallback for specific tasks if needed, but keeping simple for now. 
-    // Note: Verify if 'gemini-2.0-flash-exp' supports all modalities (Text, Image, Audio). 
-    // If not, we might need specific endpoints. 
-    // For this analysis, we will use a generic handler or stick to user's if they work, 
-    // but the user's models looked like specific preview snapshots. 
-    // We will use standard names for stability if possible, or keep user's if they are unique.
-    // Let's stick to the user's intent but fix the variable access.
 
     const getApiUrl = (model, method = 'generateContent') => 
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${apiKey}`;
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- State Init ---
         let selectedStyle = null, uploadedFiles = {}, generatedContent = { images: [], script: "" };
         let modelMode = 'upload';
         let selectedSceneCount = 5;
         let availableModels = [];
         let modelInfoMap = {};
         let activeModelName = localStorage.getItem('gemini_active_model') || "";
+        let uxMetrics = (() => {
+            try { return JSON.parse(localStorage.getItem('ux_metrics') || '{"runs":0,"durations":[],"ratings":[]}'); }
+            catch { return { runs: 0, durations: [], ratings: [] }; }
+        })();
 
-        // --- DOM Elements ---
         const dom = {
             apiKeyInput: document.getElementById('api-key-input'),
             simulationMode: document.getElementById('simulation-mode'),
             modelSelect: document.getElementById('model-select'),
             refreshModels: document.getElementById('refresh-models'),
+            themeToggle: document.getElementById('theme-toggle'),
+            settingsToggle: document.getElementById('settings-toggle'),
+            settingsPanel: document.getElementById('settings-panel'),
+            overlay: document.getElementById('ui-overlay'),
+            dsOpen: document.getElementById('ds-open'),
+            dsDrawer: document.getElementById('design-system-drawer'),
+            dsClose: document.getElementById('ds-close'),
+            dsClose2: document.getElementById('ds-close-2'),
+            fbModal: document.getElementById('feedback-modal'),
+            fbClose: document.getElementById('fb-close'),
+            fbClose2: document.getElementById('fb-close-2'),
+            uxAvgDuration: document.getElementById('ux-avg-duration'),
+            uxAvgRating: document.getElementById('ux-avg-rating'),
+            uxReset: document.getElementById('ux-reset'),
+            uxOpenFeedback: document.getElementById('ux-open-feedback'),
             styleCards: document.querySelectorAll('.style-card'),
             sceneCountContainer: document.getElementById('scene-count-container'),
             sceneCountBtns: document.querySelectorAll('.scene-count-btn'),
@@ -228,7 +530,45 @@
             downloadAudioLink: document.getElementById('download-audio-link')
         };
 
-        // --- Init UI Values ---
+        const getTheme = () => localStorage.getItem('ui_theme') || "";
+        const setTheme = (theme) => {
+            const t = theme || "";
+            if (t) localStorage.setItem('ui_theme', t);
+            else localStorage.removeItem('ui_theme');
+            const resolved = t || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light");
+            document.documentElement.dataset.theme = resolved;
+            if (dom.themeToggle) {
+                const isDark = resolved === "dark";
+                dom.themeToggle.setAttribute('aria-pressed', isDark ? "true" : "false");
+                dom.themeToggle.textContent = isDark ? "Mode Terang" : "Mode Gelap";
+            }
+        };
+        setTheme(getTheme());
+
+        const openOverlay = () => dom.overlay?.classList.add('is-open');
+        const closeOverlay = () => dom.overlay?.classList.remove('is-open');
+        const openDrawer = (drawerEl) => { openOverlay(); drawerEl?.classList.add('is-open'); };
+        const closeDrawer = (drawerEl) => { drawerEl?.classList.remove('is-open'); if (!dom.dsDrawer?.classList.contains('is-open') && !dom.fbModal?.classList.contains('is-open')) closeOverlay(); };
+
+        const avg = (arr) => arr.length ? (arr.reduce((a,b) => a + b, 0) / arr.length) : 0;
+        const formatMs = (ms) => {
+            const s = Math.max(0, ms) / 1000;
+            if (s < 60) return `${s.toFixed(1)}s`;
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            return `${m}m ${r.toFixed(0)}s`;
+        };
+        const saveMetrics = () => localStorage.setItem('ux_metrics', JSON.stringify(uxMetrics));
+        const renderMetrics = () => {
+            if (dom.uxAvgDuration) {
+                dom.uxAvgDuration.textContent = uxMetrics.durations.length ? formatMs(avg(uxMetrics.durations)) : "-";
+            }
+            if (dom.uxAvgRating) {
+                dom.uxAvgRating.textContent = uxMetrics.ratings.length ? avg(uxMetrics.ratings).toFixed(2) : "-";
+            }
+        };
+        renderMetrics();
+
         if (dom.apiKeyInput) {
             dom.apiKeyInput.value = apiKey;
             dom.apiKeyInput.addEventListener('input', (e) => {
@@ -241,6 +581,58 @@
                 isSimulationMode = e.target.checked;
             });
         }
+        if (dom.themeToggle) {
+            dom.themeToggle.addEventListener('click', () => {
+                const current = document.documentElement.dataset.theme || "light";
+                setTheme(current === "dark" ? "light" : "dark");
+            });
+        }
+        if (dom.settingsToggle && dom.settingsPanel) {
+            dom.settingsToggle.addEventListener('click', () => {
+                const isHidden = dom.settingsPanel.hasAttribute('hidden');
+                if (isHidden) dom.settingsPanel.removeAttribute('hidden');
+                else dom.settingsPanel.setAttribute('hidden', '');
+                dom.settingsToggle.setAttribute('aria-expanded', isHidden ? "true" : "false");
+            });
+            const mq = window.matchMedia('(min-width: 640px)');
+            const syncSettingsVisibility = () => {
+                if (mq.matches) {
+                    dom.settingsPanel.removeAttribute('hidden');
+                    dom.settingsToggle.setAttribute('aria-expanded', "true");
+                } else {
+                    dom.settingsPanel.setAttribute('hidden', '');
+                    dom.settingsToggle.setAttribute('aria-expanded', "false");
+                }
+            };
+            syncSettingsVisibility();
+            mq.addEventListener?.('change', syncSettingsVisibility);
+        }
+        if (dom.dsOpen && dom.dsDrawer) dom.dsOpen.addEventListener('click', () => openDrawer(dom.dsDrawer));
+        if (dom.dsClose && dom.dsDrawer) dom.dsClose.addEventListener('click', () => closeDrawer(dom.dsDrawer));
+        if (dom.dsClose2 && dom.dsDrawer) dom.dsClose2.addEventListener('click', () => closeDrawer(dom.dsDrawer));
+        if (dom.fbClose && dom.fbModal) dom.fbClose.addEventListener('click', () => closeDrawer(dom.fbModal));
+        if (dom.fbClose2 && dom.fbModal) dom.fbClose2.addEventListener('click', () => closeDrawer(dom.fbModal));
+        if (dom.uxOpenFeedback && dom.fbModal) dom.uxOpenFeedback.addEventListener('click', () => openDrawer(dom.fbModal));
+        if (dom.uxReset) {
+            dom.uxReset.addEventListener('click', () => {
+                uxMetrics = { runs: 0, durations: [], ratings: [] };
+                saveMetrics();
+                renderMetrics();
+                showToast("Metrik direset.");
+            });
+        }
+        if (dom.overlay) {
+            dom.overlay.addEventListener('click', () => {
+                closeDrawer(dom.dsDrawer);
+                closeDrawer(dom.fbModal);
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") {
+                closeDrawer(dom.dsDrawer);
+                closeDrawer(dom.fbModal);
+            }
+        });
         const setActiveModel = (name) => {
             activeModelName = name || "";
             localStorage.setItem('gemini_active_model', activeModelName);
@@ -325,7 +717,7 @@
 
         const showToast = (msg, isError = false) => {
             const t = document.createElement('div');
-            t.className = `toast p-4 rounded-lg shadow-xl text-white ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            t.className = `toast p-4 rounded-lg shadow-xl ${isError ? 'is-error' : 'is-success'}`;
             t.textContent = msg;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 4000);
@@ -333,19 +725,16 @@
 
         const parseJSONFromText = (text) => {
             try {
-                // 1. Try direct parse
                 return JSON.parse(text);
             } catch (e) {
-                // 2. Try extracting from markdown code blocks
                 const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
                 if (jsonMatch && jsonMatch[1]) {
-                    try { return JSON.parse(jsonMatch[1]); } catch (e2) { /* continue */ }
+                    try { return JSON.parse(jsonMatch[1]); } catch (e2) {}
                 }
-                // 3. Try finding the first '{' and last '}'
                 const firstBrace = text.indexOf('{');
                 const lastBrace = text.lastIndexOf('}');
                 if (firstBrace !== -1 && lastBrace !== -1) {
-                     try { return JSON.parse(text.substring(firstBrace, lastBrace + 1)); } catch (e3) { /* continue */ }
+                     try { return JSON.parse(text.substring(firstBrace, lastBrace + 1)); } catch (e3) {}
                 }
                 throw new Error("Gagal mengurai respons JSON dari AI.");
             }
@@ -358,19 +747,15 @@
         };
 
         const apiCall = async (url, payload) => {
-            // Mock Mode Logic
             if (isSimulationMode) {
-                await new Promise(r => setTimeout(r, 1500)); // Fake delay
+                await new Promise(r => setTimeout(r, 650));
                 if (url.includes('generateContent')) {
-                    // Check if it's script generation (text) or image/audio
                     if (JSON.stringify(payload).includes('visual storyboard')) {
                         return { candidates: [{ content: { parts: [{ text: JSON.stringify({
                             script: "Ini adalah naskah simulasi untuk produk Anda. Produk ini sangat luar biasa dan mengubah hidup.",
                             prompts: Array(selectedSceneCount).fill("Sebuah gambar produk yang menawan di atas meja kayu dengan pencahayaan alami.")
                         }) }] } }] };
                     }
-                    // Image generation mock (returns a placeholder base64 or handled in logic)
-                    // We'll return a 1x1 pixel base64 for simulation or catch it later
                     return { candidates: [{ content: { parts: [{ inlineData: { data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" } }] } }] };
                 }
                 return {};
@@ -423,9 +808,10 @@
             dom.loadingOverlay.classList.remove('hidden');
             dom.visualSection.classList.add('hidden');
             dom.scriptAudioContainer.classList.add('hidden');
+            const t0 = performance.now();
+            let completed = false;
             
             try {
-                // 1. Generate Script & Prompts
                 dom.loadingMessage.textContent = "Menyusun Naskah & Konsep...";
                 const textPayload = {
                     contents: [{ parts: [{ text: `Buat visual storyboard ${selectedSceneCount} adegan untuk video pendek. 
@@ -442,10 +828,8 @@
                 dom.imageGrid.innerHTML = '';
                 dom.generatedScript.value = generatedContent.script;
 
-                // 2. Generate Images (Parallel)
                 dom.loadingMessage.textContent = `Membuat ${plan.prompts.length} Gambar Visual...`;
                 
-                // Create placeholders first
                 const placeholders = [];
                 for(let i=0; i<plan.prompts.length; i++) {
                     const c = document.createElement('div');
@@ -464,10 +848,8 @@
                         }
                         const imgPayload = { 
                             contents: [{ parts: [{ text: prompt + " photorealistic, 8k, high quality" }] }], 
-                            generationConfig: { responseModalities: ['IMAGE'] } // Ensure IMAGE modality
+                            generationConfig: { responseModalities: ['IMAGE'] }
                         };
-                        // Note: Some models support text+image input for image generation, some don't.
-                        // Assuming the user's selected model supports it.
                         if (uploadedFiles.productImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.productImage });
                         if (modelMode === 'upload' && uploadedFiles.modelImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.modelImage });
                         
@@ -504,16 +886,24 @@
                 dom.scriptPlaceholderOutput.classList.add('hidden');
                 dom.scriptAudioContainer.classList.remove('hidden');
                 showToast("Proses generasi selesai!");
+                completed = true;
 
             } catch (e) { 
                 console.error(e);
                 showToast("Terjadi kesalahan: " + e.message, true); 
             } finally { 
                 dom.loadingOverlay.classList.add('hidden'); 
+                if (completed) {
+                    const dt = performance.now() - t0;
+                    uxMetrics.runs = (uxMetrics.runs || 0) + 1;
+                    uxMetrics.durations.push(dt);
+                    saveMetrics();
+                    renderMetrics();
+                    if (dom.fbModal) openDrawer(dom.fbModal);
+                }
             }
         };
 
-        // --- Event Listeners ---
         dom.styleCards.forEach(c => c.onclick = () => {
             dom.styleCards.forEach(x => x.classList.remove('selected'));
             c.classList.add('selected');
@@ -568,8 +958,6 @@
                 if (!b64) throw new Error("Gagal mendapatkan data audio.");
 
                 const bin = atob(b64);
-                // Simple WAV header construction (Assuming 24kHz Mono 16-bit based on common Gemini defaults)
-                // If the model changes, this header might need adjustment.
                 const buf = new ArrayBuffer(44 + bin.length);
                 const view = new DataView(buf);
                 const writeS = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
@@ -614,6 +1002,20 @@
         dom.ttsVoice.innerHTML = ttsVoices.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
         
         bindUploadAreas();
+        if (dom.fbModal) {
+            dom.fbModal.querySelectorAll('[data-rating]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const v = parseInt(btn.getAttribute('data-rating'), 10);
+                    if (Number.isFinite(v)) {
+                        uxMetrics.ratings.push(v);
+                        saveMetrics();
+                        renderMetrics();
+                        showToast("Terima kasih! Feedback tersimpan.");
+                    }
+                    closeDrawer(dom.fbModal);
+                });
+            });
+        }
         if (apiKey) {
             listModels().catch(e => showToast(e.message, true));
         }
