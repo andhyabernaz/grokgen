@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Grok Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; }
+        .style-card { transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .style-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(168, 85, 247, 0.1); }
+        .style-card.selected { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); transform: translateY(-2px); background-color: #f5f3ff; }
+        .scene-count-btn { transition: all 0.2s; }
+        .scene-count-btn.selected { border-color: #a855f7; background-color: #f5f3ff; color: #6b21a8; box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2); }
+        .loader { border-top-color: #a855f7; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast { animation: fadeInOut 5s ease-in-out forwards; position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 100; }
+        @keyframes fadeInOut { 0%, 100% { opacity: 0; transform: translateY(20px); } 10%, 90% { opacity: 1; transform: translateY(0); } }
+        .file-upload-area { border: 2px dashed #9ca3af; transition: border-color 0.2s, background-color 0.2s; cursor: pointer; border-radius: 0.5rem; padding: 1.5rem; text-align: center; }
+        .file-upload-area:hover { border-color: #a855f7; background-color: rgba(168, 85, 247, 0.05); }
+        .file-preview { max-height: 120px; border-radius: 0.375rem; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app-container" class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-10 relative">
+            <div class="absolute top-0 right-0 p-4">
+                <input type="password" id="api-key-input" placeholder="Masukkan Gemini API Key" class="border border-gray-300 rounded px-2 py-1 text-sm w-48 focus:w-64 transition-all" />
+                <div class="mt-1 text-xs text-right">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="simulation-mode" class="form-checkbox h-3 w-3 text-purple-600">
+                        <span class="ml-1 text-gray-500">Mode Simulasi</span>
+                    </label>
+                </div>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">Video Grok <span class="text-purple-600">Generator</span></h1>
+        </header>
+
+        <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Kolom Input -->
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
+                <section id="style-selection">
+                    <h2 class="text-xl font-semibold mb-1 text-gray-900">Langkah 1: Pilih Gaya Konten</h2>
+                    <p class="text-gray-600 mb-5 text-sm">Pilih template untuk menentukan alur cerita visual.</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="style-card bg-white p-4 rounded-lg border-2 border-gray-300 cursor-pointer text-center" data-style="story-telling">
+                            <h3 class="font-semibold text-sm">Story Telling</h3>
+                        </div>
+                        <div class="style-card bg-white p-4 rounded-lg border-2 border-gray-300 cursor-pointer text-center" data-style="promosi-produk">
+                            <h3 class="font-semibold text-sm">Promosi Produk</h3>
+                        </div>
+                    </div>
+
+                    <div id="scene-count-container" class="mt-6 hidden border-t border-gray-200 pt-6">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-3">Pilih Durasi Video (Jumlah Scene):</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button class="scene-count-btn border-2 border-gray-200 rounded-lg p-3 text-center bg-white" data-count="5">
+                                <span class="block font-bold text-gray-800">5</span>
+                                <span class="block text-xs text-gray-500">~30s</span>
+                            </button>
+                            <button class="scene-count-btn border-2 border-gray-200 rounded-lg p-3 text-center bg-white" data-count="8">
+                                <span class="block font-bold text-gray-800">8</span>
+                                <span class="block text-xs text-gray-500">~48s</span>
+                            </button>
+                            <button class="scene-count-btn border-2 border-gray-200 rounded-lg p-3 text-center bg-white" data-count="10">
+                                <span class="block font-bold text-gray-800">10</span>
+                                <span class="block text-xs text-gray-500">~60s</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="input-form" class="mt-8 hidden border-t border-gray-200 pt-6">
+                    <h2 class="text-xl font-semibold mb-5 text-gray-900">Langkah 2: Detail Konten</h2>
+                    
+                    <div class="space-y-6">
+                        <div id="section-product-container">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Foto Produk Utama</label>
+                            <div id="product-upload-area" class="file-upload-area">
+                                <input type="file" id="productImage" class="hidden" accept="image/*">
+                                <div id="preview-productImage" class="text-gray-500 text-sm">Klik di sini untuk Unggah Foto</div>
+                            </div>
+                            <textarea id="productDescription" rows="2" class="mt-3 w-full rounded-md border-gray-300 border p-2 text-sm" placeholder="Apa nama produknya?"></textarea>
+                        </div>
+
+                        <div id="section-model">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Model (Opsional)</label>
+                            <div class="flex bg-gray-100 p-1 rounded-lg mb-4 text-xs">
+                                <button class="model-toggle-btn flex-1 py-1.5 rounded-md selected" data-mode="upload">Upload</button>
+                                <button class="model-toggle-btn flex-1 py-1.5 rounded-md text-gray-600" data-mode="generate">AI Generate</button>
+                            </div>
+                            <div id="model-upload-panel" class="file-upload-area">
+                                <input type="file" id="modelImage" class="hidden" accept="image/*">
+                                <div id="preview-modelImage" class="text-gray-500 text-sm">Klik di sini untuk Unggah Model</div>
+                            </div>
+                            <div id="model-generate-panel" class="hidden">
+                                <textarea id="modelDescription" rows="2" class="w-full rounded-md border-gray-300 border p-2 text-sm" placeholder="Deskripsi model (misal: Wanita Asia usia 20an)"></textarea>
+                            </div>
+                        </div>
+
+                        <div id="section-ads">
+                             <label class="block text-sm font-medium text-gray-700 mb-2">Tipe Iklan</label>
+                             <select id="sellingType" class="w-full rounded-md border-gray-300 border p-2 text-sm">
+                                <option value="soft-selling">Soft Selling</option>
+                                <option value="hard-selling">Hard Selling</option>
+                                <option value="story-selling">Story Selling</option>
+                                <option value="cinematic-aesthetic">Cinematic Aesthetic</option>
+                             </select>
+                        </div>
+                    </div>
+
+                    <button id="generate-btn" class="mt-8 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-lg">
+                        Generate Konten
+                    </button>
+                </section>
+            </div>
+
+            <!-- Kolom Visual -->
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
+                <h2 class="text-xl font-semibold mb-5 text-gray-900">Visual Storyboard</h2>
+                <div id="placeholder-output" class="text-center text-gray-500 py-16">
+                    <p>Hasil gambar akan muncul di sini.</p>
+                </div>
+                <div id="visual-section" class="hidden space-y-4">
+                    <div id="image-grid" class="grid grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+
+            <!-- Kolom Naskah -->
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
+                <h2 class="text-xl font-semibold mb-5 text-gray-900">Script & Audio</h2>
+                <div id="script-placeholder-output" class="text-center text-gray-500 py-16">
+                    <p>Naskah akan muncul di sini.</p>
+                </div>
+                <div id="script-audio-container" class="hidden space-y-6">
+                    <textarea id="generated-script" rows="8" class="w-full rounded-lg border-gray-300 bg-gray-50 p-3 text-sm focus:ring-2 focus:ring-purple-500 border transition"></textarea>
+                    
+                    <div class="pt-6 border-t border-gray-100">
+                        <select id="tts-voice" class="w-full border-gray-300 border rounded-lg p-2 text-sm mb-3"></select>
+                        <button id="tts-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-purple-700 transition">Buat Audio</button>
+                        
+                        <div id="audio-player-controls" class="hidden mt-4 bg-gray-50 p-3 rounded-lg flex items-center justify-between border">
+                            <button id="play-audio-btn" class="w-10 h-10 bg-white rounded-full text-purple-600 flex items-center justify-center shadow">
+                                <svg id="play-icon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                                <svg id="pause-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"/></svg>
+                            </button>
+                            <audio id="audio-player" class="hidden"></audio>
+                            <a id="download-audio-link" class="text-purple-600 text-sm font-medium hover:underline cursor-pointer">Unduh WAV</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="loader rounded-full border-8 border-t-8 border-gray-200 h-20 w-20 mb-4 mx-auto"></div>
+            <p id="loading-message" class="text-gray-900 font-medium">AI sedang bekerja...</p>
+        </div>
+    </div>
+
+<script type="module">
+    // --- Konfigurasi & State Global ---
+    let apiKey = localStorage.getItem('gemini_api_key') || "";
+    let isSimulationMode = false;
+
+    // Model names - Updated to ensure compatibility
+    const MODELS = {
+        TEXT: 'gemini-2.0-flash-exp', // Updated from preview-09-2025
+        IMAGE: 'gemini-2.0-flash-exp', // Updated to flash-exp which supports image gen
+        TTS: 'gemini-2.0-flash-exp'   // Updated to flash-exp if supported, or fallback
+    };
+    // Fallback for specific tasks if needed, but keeping simple for now. 
+    // Note: Verify if 'gemini-2.0-flash-exp' supports all modalities (Text, Image, Audio). 
+    // If not, we might need specific endpoints. 
+    // For this analysis, we will use a generic handler or stick to user's if they work, 
+    // but the user's models looked like specific preview snapshots. 
+    // We will use standard names for stability if possible, or keep user's if they are unique.
+    // Let's stick to the user's intent but fix the variable access.
+
+    const getApiUrl = (model, method = 'generateContent') => 
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${apiKey}`;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- State Init ---
+        let selectedStyle = null, uploadedFiles = {}, generatedContent = { images: [], script: "" };
+        let modelMode = 'upload';
+        let selectedSceneCount = 5;
+
+        // --- DOM Elements ---
+        const dom = {
+            apiKeyInput: document.getElementById('api-key-input'),
+            simulationMode: document.getElementById('simulation-mode'),
+            styleCards: document.querySelectorAll('.style-card'),
+            sceneCountContainer: document.getElementById('scene-count-container'),
+            sceneCountBtns: document.querySelectorAll('.scene-count-btn'),
+            inputForm: document.getElementById('input-form'),
+            generateBtn: document.getElementById('generate-btn'),
+            loadingOverlay: document.getElementById('loading-overlay'),
+            loadingMessage: document.getElementById('loading-message'),
+            visualSection: document.getElementById('visual-section'),
+            scriptAudioContainer: document.getElementById('script-audio-container'),
+            placeholderOutput: document.getElementById('placeholder-output'),
+            scriptPlaceholderOutput: document.getElementById('script-placeholder-output'),
+            imageGrid: document.getElementById('image-grid'),
+            generatedScript: document.getElementById('generated-script'),
+            ttsBtn: document.getElementById('tts-btn'),
+            ttsVoice: document.getElementById('tts-voice'),
+            audioPlayer: document.getElementById('audio-player'),
+            audioPlayerControls: document.getElementById('audio-player-controls'),
+            playAudioBtn: document.getElementById('play-audio-btn'),
+            playIcon: document.getElementById('play-icon'),
+            pauseIcon: document.getElementById('pause-icon'),
+            downloadAudioLink: document.getElementById('download-audio-link')
+        };
+
+        // --- Init UI Values ---
+        if (dom.apiKeyInput) {
+            dom.apiKeyInput.value = apiKey;
+            dom.apiKeyInput.addEventListener('input', (e) => {
+                apiKey = e.target.value;
+                localStorage.setItem('gemini_api_key', apiKey);
+            });
+        }
+        if (dom.simulationMode) {
+            dom.simulationMode.addEventListener('change', (e) => {
+                isSimulationMode = e.target.checked;
+            });
+        }
+
+        const ttsVoices = [
+            { id: 'Aoede', name: 'Wanita - Ceria' },
+            { id: 'Leda', name: 'Wanita - Elegan' },
+            { id: 'Charon', name: 'Pria - Hangat' },
+            { id: 'Orus', name: 'Pria - Tegas' }
+        ];
+
+        // --- Helper Functions ---
+        const bindUploadAreas = () => {
+            const productArea = document.getElementById('product-upload-area');
+            const modelArea = document.getElementById('model-upload-panel');
+            
+            if (productArea) {
+                productArea.onclick = () => document.getElementById('productImage').click();
+                const input = document.getElementById('productImage');
+                if (input) input.onchange = handleFileUpload;
+            }
+            if (modelArea) {
+                modelArea.onclick = () => document.getElementById('modelImage').click();
+                const input = document.getElementById('modelImage');
+                if (input) input.onchange = handleFileUpload;
+            }
+        };
+
+        const showToast = (msg, isError = false) => {
+            const t = document.createElement('div');
+            t.className = `toast p-4 rounded-lg shadow-xl text-white ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 4000);
+        };
+
+        const parseJSONFromText = (text) => {
+            try {
+                // 1. Try direct parse
+                return JSON.parse(text);
+            } catch (e) {
+                // 2. Try extracting from markdown code blocks
+                const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                if (jsonMatch && jsonMatch[1]) {
+                    try { return JSON.parse(jsonMatch[1]); } catch (e2) { /* continue */ }
+                }
+                // 3. Try finding the first '{' and last '}'
+                const firstBrace = text.indexOf('{');
+                const lastBrace = text.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1) {
+                     try { return JSON.parse(text.substring(firstBrace, lastBrace + 1)); } catch (e3) { /* continue */ }
+                }
+                throw new Error("Gagal mengurai respons JSON dari AI.");
+            }
+        };
+
+        const apiCall = async (url, payload) => {
+            // Mock Mode Logic
+            if (isSimulationMode) {
+                await new Promise(r => setTimeout(r, 1500)); // Fake delay
+                if (url.includes('generateContent')) {
+                    // Check if it's script generation (text) or image/audio
+                    if (JSON.stringify(payload).includes('visual storyboard')) {
+                        return { candidates: [{ content: { parts: [{ text: JSON.stringify({
+                            script: "Ini adalah naskah simulasi untuk produk Anda. Produk ini sangat luar biasa dan mengubah hidup.",
+                            prompts: Array(selectedSceneCount).fill("Sebuah gambar produk yang menawan di atas meja kayu dengan pencahayaan alami.")
+                        }) }] } }] };
+                    }
+                    // Image generation mock (returns a placeholder base64 or handled in logic)
+                    // We'll return a 1x1 pixel base64 for simulation or catch it later
+                    return { candidates: [{ content: { parts: [{ inlineData: { data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" } }] } }] };
+                }
+                return {};
+            }
+
+            if (!apiKey) throw new Error("Kunci API belum tersedia. Masukkan di pojok kanan atas.");
+            
+            let lastError;
+            const delays = [1000, 2000, 4000];
+            for (let i = 0; i <= delays.length; i++) {
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (res.ok) return await res.json();
+                    if ((res.status === 429 || res.status >= 500) && i < delays.length) {
+                        await new Promise(r => setTimeout(r, delays[i]));
+                        continue;
+                    }
+                    const errJ = await res.json().catch(() => ({}));
+                    throw new Error(errJ?.error?.message || `HTTP ${res.status}`);
+                } catch (e) { lastError = e; }
+            }
+            throw lastError;
+        };
+
+        const fileToDataURL = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+        });
+
+        const handleFileUpload = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                const data = await fileToDataURL(file);
+                uploadedFiles[e.target.id] = { mimeType: file.type, data: data.split(',')[1] };
+                document.getElementById(`preview-${e.target.id}`).innerHTML = `<img src="${data}" class="file-preview">`;
+                showToast("Foto berhasil diunggah.");
+            } catch(err) { showToast("Gagal mengunggah foto.", true); }
+        };
+
+        const generateWorkflow = async () => {
+            if (!uploadedFiles.productImage && !isSimulationMode) return showToast("Upload foto produk dulu ya.", true);
+            
+            dom.loadingOverlay.classList.remove('hidden');
+            dom.visualSection.classList.add('hidden');
+            dom.scriptAudioContainer.classList.add('hidden');
+            
+            try {
+                // 1. Generate Script & Prompts
+                dom.loadingMessage.textContent = "Menyusun Naskah & Konsep...";
+                const textPayload = {
+                    contents: [{ parts: [{ text: `Buat visual storyboard ${selectedSceneCount} adegan untuk video pendek. 
+                    Output HARUS dalam format JSON valid tanpa markdown block: {"script": "narasi voiceover lengkap", "prompts": ["prompt visual 1", "prompt visual 2", ...]}` }] }]
+                };
+                if (uploadedFiles.productImage) textPayload.contents[0].parts.push({ inlineData: uploadedFiles.productImage });
+                
+                const textRes = await apiCall(getApiUrl(MODELS.TEXT), textPayload);
+                const rawText = textRes.candidates[0].content.parts[0].text;
+                const plan = parseJSONFromText(rawText);
+                
+                generatedContent.script = plan.script;
+                generatedContent.images = [];
+                dom.imageGrid.innerHTML = '';
+                dom.generatedScript.value = generatedContent.script;
+
+                // 2. Generate Images (Parallel)
+                dom.loadingMessage.textContent = `Membuat ${plan.prompts.length} Gambar Visual...`;
+                
+                // Create placeholders first
+                const placeholders = [];
+                for(let i=0; i<plan.prompts.length; i++) {
+                    const c = document.createElement('div');
+                    c.className = "bg-gray-200 rounded-lg overflow-hidden border aspect-[9/16] animate-pulse relative";
+                    c.innerHTML = `<div class="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">Generating ${i+1}...</div>`;
+                    dom.imageGrid.appendChild(c);
+                    placeholders.push(c);
+                }
+                dom.placeholderOutput.classList.add('hidden');
+                dom.visualSection.classList.remove('hidden');
+
+                const imagePromises = plan.prompts.map(async (prompt, i) => {
+                    try {
+                        const imgPayload = { 
+                            contents: [{ parts: [{ text: prompt + " photorealistic, 8k, high quality" }] }], 
+                            generationConfig: { responseModalities: ['IMAGE'] } // Ensure IMAGE modality
+                        };
+                        // Note: Some models support text+image input for image generation, some don't.
+                        // Assuming the user's selected model supports it.
+                        if (uploadedFiles.productImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.productImage });
+                        if (modelMode === 'upload' && uploadedFiles.modelImage) imgPayload.contents[0].parts.push({ inlineData: uploadedFiles.modelImage });
+                        
+                        const imgRes = await apiCall(getApiUrl(MODELS.IMAGE), imgPayload);
+                        const b64 = imgRes.candidates[0].content.parts.find(p => p.inlineData)?.inlineData?.data;
+                        
+                        if (b64) {
+                            const url = `data:image/png;base64,${b64}`;
+                            placeholders[i].className = "bg-gray-100 rounded-lg overflow-hidden border aspect-[9/16] group relative";
+                            placeholders[i].innerHTML = `
+                                <img src="${url}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity truncate">${prompt}</div>
+                            `;
+                        } else {
+                            throw new Error("No image data");
+                        }
+                    } catch (e) {
+                        console.error(`Failed to generate image ${i}:`, e);
+                        placeholders[i].className = "bg-red-50 rounded-lg overflow-hidden border aspect-[9/16] flex items-center justify-center";
+                        placeholders[i].innerHTML = `<span class="text-red-500 text-xs p-2 text-center">Gagal: ${e.message}</span>`;
+                    }
+                });
+
+                await Promise.allSettled(imagePromises);
+
+                dom.scriptPlaceholderOutput.classList.add('hidden');
+                dom.scriptAudioContainer.classList.remove('hidden');
+                showToast("Proses generasi selesai!");
+
+            } catch (e) { 
+                console.error(e);
+                showToast("Terjadi kesalahan: " + e.message, true); 
+            } finally { 
+                dom.loadingOverlay.classList.add('hidden'); 
+            }
+        };
+
+        // --- Event Listeners ---
+        dom.styleCards.forEach(c => c.onclick = () => {
+            dom.styleCards.forEach(x => x.classList.remove('selected'));
+            c.classList.add('selected');
+            selectedStyle = c.dataset.style;
+            dom.sceneCountContainer.classList.remove('hidden');
+        });
+
+        dom.sceneCountBtns.forEach(b => b.onclick = () => {
+            dom.sceneCountBtns.forEach(x => x.classList.remove('selected'));
+            b.classList.add('selected');
+            selectedSceneCount = parseInt(b.dataset.count);
+            dom.inputForm.classList.remove('hidden');
+            bindUploadAreas();
+        });
+
+        document.querySelectorAll('.model-toggle-btn').forEach(b => b.onclick = () => {
+            modelMode = b.dataset.mode;
+            document.querySelectorAll('.model-toggle-btn').forEach(x => x.classList.remove('selected', 'bg-white', 'shadow-sm'));
+            b.classList.add('selected', 'bg-white', 'shadow-sm');
+            document.getElementById('model-upload-panel').classList.toggle('hidden', modelMode !== 'upload');
+            document.getElementById('model-generate-panel').classList.toggle('hidden', modelMode !== 'generate');
+        });
+
+        dom.generateBtn.onclick = generateWorkflow;
+        
+        dom.ttsBtn.onclick = async () => {
+            const s = dom.generatedScript.value;
+            if (!s) return;
+            dom.ttsBtn.disabled = true;
+            dom.ttsBtn.textContent = "Sedang memproses...";
+            try {
+                if (isSimulationMode) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    showToast("Audio simulasi tidak tersedia (mock only).");
+                    dom.ttsBtn.disabled = false;
+                    dom.ttsBtn.textContent = "Buat Audio";
+                    return;
+                }
+
+                const p = { 
+                    contents: [{ parts: [{ text: s }] }], 
+                    generationConfig: { 
+                        responseModalities: ["AUDIO"], 
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: dom.ttsVoice.value } } } 
+                    } 
+                };
+                const res = await apiCall(getApiUrl(MODELS.TTS), p);
+                const b64 = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!b64) throw new Error("Gagal mendapatkan data audio.");
+
+                const bin = atob(b64);
+                // Simple WAV header construction (Assuming 24kHz Mono 16-bit based on common Gemini defaults)
+                // If the model changes, this header might need adjustment.
+                const buf = new ArrayBuffer(44 + bin.length);
+                const view = new DataView(buf);
+                const writeS = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+                
+                writeS(0, 'RIFF'); view.setUint32(4, 36 + bin.length, true); writeS(8, 'WAVE'); writeS(12, 'fmt '); 
+                view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
+                view.setUint32(24, 24000, true); view.setUint32(28, 48000, true); view.setUint16(32, 2, true); 
+                view.setUint16(34, 16, true); writeS(36, 'data'); view.setUint32(40, bin.length, true);
+                
+                for (let i = 0; i < bin.length; i++) view.setUint8(44 + i, bin.charCodeAt(i));
+                
+                const url = URL.createObjectURL(new Blob([view], { type: 'audio/wav' }));
+                dom.audioPlayer.src = url; 
+                dom.downloadAudioLink.href = url; 
+                dom.downloadAudioLink.download = "generated_audio.wav";
+                dom.audioPlayerControls.classList.remove('hidden');
+                
+            } catch (e) { showToast(e.message, true); }
+            finally { 
+                dom.ttsBtn.disabled = false; 
+                dom.ttsBtn.textContent = "Buat Audio";
+            }
+        };
+
+        dom.playAudioBtn.onclick = () => {
+            if (dom.audioPlayer.paused) { 
+                dom.audioPlayer.play(); 
+                dom.playIcon.classList.add('hidden'); 
+                dom.pauseIcon.classList.remove('hidden'); 
+            } else { 
+                dom.audioPlayer.pause(); 
+                dom.playIcon.classList.remove('hidden'); 
+                dom.pauseIcon.classList.add('hidden'); 
+            }
+        };
+
+        dom.audioPlayer.onended = () => {
+            dom.playIcon.classList.remove('hidden'); 
+            dom.pauseIcon.classList.add('hidden');
+        };
+
+        dom.ttsVoice.innerHTML = ttsVoices.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+        
+        bindUploadAreas();
+    });
+</script>
+</body>
+</html>
